@@ -1,0 +1,42 @@
+<!--
+  Lucide icons (https://lucide.dev, ISC license) via the lucide-static 0.469.0 font.
+  Codepoints come from lucide-static/font/info.json. Keep in sync with Icons.cs.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <FontFamily x:Key="LucideFont">ms-appx:///Assets/Fonts/lucide.ttf#lucide</FontFamily>
+
+    <Style x:Key="LucideIconStyle" TargetType="FontIcon">
+        <Setter Property="FontFamily" Value="{StaticResource LucideFont}" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+
+    <x:String x:Key="IconMenu">&#xE118;</x:String>
+    <x:String x:Key="IconMail">&#xE112;</x:String>
+    <x:String x:Key="IconMailOpen">&#xE366;</x:String>
+    <x:String x:Key="IconCalendar">&#xE067;</x:String>
+    <x:String x:Key="IconUsers">&#xE1A3;</x:String>
+    <x:String x:Key="IconUser">&#xE19E;</x:String>
+    <x:String x:Key="IconTodo">&#xE225;</x:String>
+    <x:String x:Key="IconSettings">&#xE157;</x:String>
+    <x:String x:Key="IconFolder">&#xE0DC;</x:String>
+    <x:String x:Key="IconCompose">&#xE175;</x:String>
+    <x:String x:Key="IconSearch">&#xE154;</x:String>
+    <x:String x:Key="IconRefresh">&#xE148;</x:String>
+    <x:String x:Key="IconFilter">&#xE464;</x:String>
+    <x:String x:Key="IconPaperclip">&#xE130;</x:String>
+    <x:String x:Key="IconFlag">&#xE0D6;</x:String>
+    <x:String x:Key="IconReply">&#xE229;</x:String>
+    <x:String x:Key="IconReplyAll">&#xE22A;</x:String>
+    <x:String x:Key="IconForward">&#xE228;</x:String>
+    <x:String x:Key="IconArchive">&#xE045;</x:String>
+    <x:String x:Key="IconDelete">&#xE18D;</x:String>
+    <x:String x:Key="IconMore">&#xE0BA;</x:String>
+    <x:String x:Key="IconChevronDown">&#xE071;</x:String>
+    <x:String x:Key="IconSend">&#xE155;</x:String>
+    <x:String x:Key="IconUserPlus">&#xE1A1;</x:String>
+    <x:String x:Key="IconUserMinus">&#xE1A0;</x:String>
+
+</ResourceDictionary>

@@ -1,0 +1,615 @@
+<Window
+    x:Class="MyMail.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:MyMail.App"
+    xmlns:models="using:MyMail.Core.Models"
+    xmlns:vm="using:MyMail.Core.ViewModels"
+    Title="MyMail">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <!--
+      Layout mirrors the original MainPage (docs/referencia/02-layout-ventana.md):
+      [nav pane: accounts + folders] ‖ [message list] ‖ [reading pane], with 8px resize thumbs.
+    -->
+    <Grid x:Name="RootGrid" Loaded="OnRootLoaded">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="NavColumn" Width="280" />
+            <ColumnDefinition x:Name="ListColumn" Width="380" />
+            <ColumnDefinition Width="*" MinWidth="320" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ============ Nav pane (accounts + folders + app switcher) ============ -->
+        <Grid Grid.Column="0" Grid.RowSpan="2" Padding="0,32,0,0" Background="{ThemeResource NavPaneBackgroundBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Padding="4,4,4,0" Spacing="2">
+                <Button
+                    Style="{StaticResource IconButtonStyle}"
+                    Click="OnToggleNavPane"
+                    ToolTipService.ToolTip="Expandir o contraer"
+                    AutomationProperties.Name="Navegación">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconMenu}" />
+                </Button>
+
+                <Button Style="{StaticResource NavButtonStyle}" ToolTipService.ToolTip="Nuevo correo" Command="{x:Bind ViewModel.NewMessageCommand}" AutomationProperties.Name="Nuevo correo">
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconCompose}" />
+                        <TextBlock x:Name="ComposeLabel" Style="{StaticResource MediumTextStyle}" Text="Nuevo correo" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- Expanded: account + folder lists. Compact: icon buttons that expand the pane. -->
+            <ScrollViewer x:Name="ExpandedNavContent" Grid.Row="1" Padding="4,8,4,0">
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="16" Padding="12,8">
+                        <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconUser}" />
+                        <TextBlock Style="{StaticResource MediumTextStyle}" Text="Cuentas" />
+                    </StackPanel>
+                    <ListView
+                        ItemsSource="{x:Bind ViewModel.Accounts}"
+                        SelectedItem="{x:Bind ViewModel.SelectedAccount, Mode=TwoWay}"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Account">
+                                <StackPanel Padding="36,6,8,6">
+                                    <TextBlock Style="{StaticResource MediumTextStyle}" Text="{x:Bind ProviderLabel}" />
+                                    <TextBlock
+                                        Style="{StaticResource SmallTextStyle}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind Email}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Orientation="Horizontal" Spacing="16" Padding="12,16,12,8">
+                        <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconFolder}" />
+                        <TextBlock Style="{StaticResource MediumTextStyle}" Text="Carpetas" />
+                    </StackPanel>
+                    <ListView
+                        ItemsSource="{x:Bind ViewModel.Folders}"
+                        SelectedItem="{x:Bind ViewModel.SelectedFolder, Mode=TwoWay}"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FolderViewModel">
+                                <!-- Original ViewListItem: [indicator][name *][unread count, min 32]. -->
+                                <Grid Height="40" Padding="4,0,0,0" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" MinWidth="32" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon
+                                        Style="{StaticResource LucideIconStyle}"
+                                        Glyph="{x:Bind app:Icons.ForFolder(Kind)}" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource MediumTextStyle}"
+                                        Text="{x:Bind Name}" />
+                                    <TextBlock
+                                        Grid.Column="2"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,0,8,0"
+                                        Style="{StaticResource MediumTextStyle}"
+                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                        Visibility="{x:Bind app:Ui.Visible(HasUnread), Mode=OneWay}"
+                                        Text="{x:Bind UnreadCount, Mode=OneWay}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel x:Name="CompactNavContent" Grid.Row="1" Padding="4,8,4,0" Spacing="2" Visibility="Collapsed">
+                <Button Style="{StaticResource IconButtonStyle}" Click="OnToggleNavPane" ToolTipService.ToolTip="Cuentas" AutomationProperties.Name="Cuentas">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconUser}" />
+                </Button>
+                <Button Style="{StaticResource IconButtonStyle}" Click="OnToggleNavPane" ToolTipService.ToolTip="Carpetas" AutomationProperties.Name="Carpetas">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconFolder}" />
+                </Button>
+            </StackPanel>
+
+            <!-- App switcher ("awesome bar" in the original): horizontal when expanded, vertical when compact. -->
+            <StackPanel
+                x:Name="AppSwitcher"
+                Grid.Row="2"
+                Padding="4,8"
+                Spacing="2"
+                Orientation="Horizontal"
+                BorderBrush="{ThemeResource PaneBorderBrush}"
+                BorderThickness="0,1,0,0">
+                <Button Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Correo" AutomationProperties.Name="Correo">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconMail}" />
+                </Button>
+                <Button Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Calendario" AutomationProperties.Name="Calendario">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconCalendar}" />
+                </Button>
+                <Button Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Personas" AutomationProperties.Name="Personas">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconUsers}" />
+                </Button>
+                <Button Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Tareas" AutomationProperties.Name="Tareas">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconTodo}" />
+                </Button>
+                <Button Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Configuración" AutomationProperties.Name="Configuración">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconSettings}" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="TopEdgeAlignedLeft">
+                            <MenuFlyoutItem Text="Agregar cuenta" Click="OnAddAccountClick">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconUserPlus}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Quitar esta cuenta" Click="OnRemoveAccountClick" IsEnabled="{x:Bind ViewModel.HasAccounts, Mode=OneWay}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconUserMinus}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Custom title bar: a transparent drag strip over all columns (Mica shows through). -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Grid.ColumnSpan="3" Background="Transparent">
+            <TextBlock
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Style="{StaticResource SmallTextStyle}"
+                FontSize="12"
+                Text="{x:Bind ViewModel.WindowTitle, Mode=OneWay}" />
+        </Grid>
+
+        <Thumb
+            x:Name="NavThumb"
+            Grid.Row="1"
+            Grid.Column="0"
+            HorizontalAlignment="Right"
+            Margin="0,0,-4,0"
+            Canvas.ZIndex="10"
+            Style="{StaticResource ResizeThumbStyle}"
+            DragDelta="OnNavThumbDragDelta" />
+
+        <!-- ============ Message list ============ -->
+        <Grid
+            Grid.Row="1"
+            Grid.Column="1"
+            Background="{ThemeResource PaneBackgroundBrush}"
+            BorderBrush="{ThemeResource PaneBorderBrush}"
+            BorderThickness="1,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Search + sync -->
+            <Grid Grid.Row="0" Padding="12,8,8,4" ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="Buscar" VerticalAlignment="Center" AutomationProperties.Name="Buscar" />
+                <Button
+                    Grid.Column="1"
+                    Style="{StaticResource IconButtonStyle}"
+                    Command="{x:Bind ViewModel.RefreshCommand}"
+                    ToolTipService.ToolTip="Sincronizar">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconRefresh}" />
+                </Button>
+            </Grid>
+
+            <!-- View header (original MailListViewHeader): title, Focused/Other, filter. -->
+            <Grid Grid.Row="1" Padding="16,4,8,0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource LargeTextStyle}" Text="{x:Bind ViewModel.SelectedFolder.Name, Mode=OneWay, FallbackValue=''}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SmallSemiboldTextStyle}" Text="Prioritarios" />
+                            <Rectangle Height="2" Margin="0,4,0,0" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SmallTextStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Otros" />
+                    </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" VerticalAlignment="Bottom" ToolTipService.ToolTip="Filtrar">
+                    <FontIcon Style="{StaticResource LucideIconStyle}" Glyph="{StaticResource IconFilter}" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Rectangle Height="1" Fill="{ThemeResource PaneBorderBrush}" />
+                <ProgressBar IsIndeterminate="True" Visibility="{x:Bind app:Ui.Visible(ViewModel.IsLoadingMessages), Mode=OneWay}" />
+            </Grid>
+
+            <ListView
+                x:Name="MessageList"
+                Grid.Row="3"
+                ItemsSource="{x:Bind ViewModel.Messages}"
+                SelectedItem="{x:Bind ViewModel.SelectedMessage, Mode=TwoWay}"
+                SelectionMode="Single"
+                ItemContainerStyle="{StaticResource MailListViewItemStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MessageItemViewModel">
+                        <!-- Swipe right = flag, swipe left = delete (original MailItemSwipeTriageBackground). -->
+                        <SwipeControl>
+                            <SwipeControl.LeftItems>
+                                <SwipeItems Mode="Execute">
+                                    <SwipeItem Text="Marcar" Background="{ThemeResource SystemFillColorCautionBrush}" Invoked="OnSwipeFlag">
+                                        <SwipeItem.IconSource>
+                                            <FontIconSource FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconFlag}" />
+                                        </SwipeItem.IconSource>
+                                    </SwipeItem>
+                                </SwipeItems>
+                            </SwipeControl.LeftItems>
+                            <SwipeControl.RightItems>
+                                <SwipeItems Mode="Execute">
+                                    <SwipeItem Text="Eliminar" Background="{ThemeResource SystemFillColorCriticalBrush}" Invoked="OnSwipeDelete">
+                                        <SwipeItem.IconSource>
+                                            <FontIconSource FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconDelete}" />
+                                        </SwipeItem.IconSource>
+                                    </SwipeItem>
+                                </SwipeItems>
+                            </SwipeControl.RightItems>
+
+                            <Grid Padding="0,10,12,10" ColumnSpacing="12" Background="Transparent">
+                                <Grid.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="{x:Bind app:Ui.ReadToggleText(IsRead), Mode=OneWay}" Tag="{x:Bind}" Click="OnToggleReadClick">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{x:Bind app:Ui.ReadToggleGlyph(IsRead), Mode=OneWay}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{x:Bind app:Ui.FlagToggleText(IsFlagged), Mode=OneWay}" Tag="{x:Bind}" Click="OnToggleFlagClick">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconFlag}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator />
+                                        <MenuFlyoutItem Text="Eliminar" Tag="{x:Bind}" Click="OnDeleteClick">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconDelete}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Grid.ContextFlyout>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="4" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Rectangle
+                                    Grid.RowSpan="3"
+                                    Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Visibility="{x:Bind app:Ui.UnreadBar(IsRead), Mode=OneWay}" />
+
+                                <!-- Line 1: sender ............ flag clip date -->
+                                <Grid Grid.Column="1" ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Style="{StaticResource MediumTextStyle}"
+                                        FontWeight="{x:Bind app:Ui.UnreadWeight(IsRead), Mode=OneWay}"
+                                        Text="{x:Bind FromName}" />
+                                    <FontIcon
+                                        Grid.Column="1"
+                                        FontFamily="{StaticResource LucideFont}"
+                                        FontSize="13"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Glyph="{StaticResource IconFlag}"
+                                        Visibility="{x:Bind app:Ui.Visible(IsFlagged), Mode=OneWay}" />
+                                    <FontIcon
+                                        Grid.Column="2"
+                                        FontFamily="{StaticResource LucideFont}"
+                                        FontSize="13"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Glyph="{StaticResource IconPaperclip}"
+                                        Visibility="{x:Bind app:Ui.Visible(HasAttachments)}" />
+                                    <TextBlock
+                                        Grid.Column="3"
+                                        Style="{StaticResource SmallTextStyle}"
+                                        VerticalAlignment="Center"
+                                        Foreground="{x:Bind app:Ui.UnreadForeground(IsRead), Mode=OneWay}"
+                                        Text="{x:Bind ReceivedText}" />
+                                </Grid>
+
+                                <!-- Line 2: subject (accent when unread) -->
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SmallTextStyle}"
+                                    FontWeight="{x:Bind app:Ui.UnreadWeight(IsRead), Mode=OneWay}"
+                                    Foreground="{x:Bind app:Ui.UnreadForeground(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind Subject}" />
+
+                                <!-- Line 3: preview -->
+                                <TextBlock
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SmallTextStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind Preview}" />
+                            </Grid>
+                        </SwipeControl>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <Thumb
+            x:Name="ListThumb"
+            Grid.Row="1"
+            Grid.Column="1"
+            HorizontalAlignment="Right"
+            Margin="0,0,-4,0"
+            Canvas.ZIndex="10"
+            Style="{StaticResource ResizeThumbStyle}"
+            DragDelta="OnListThumbDragDelta" />
+
+        <!-- ============ Reading pane ============ -->
+        <Grid Grid.Row="1" Grid.Column="2" Background="{ThemeResource PaneBackgroundBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="0" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <InfoBar
+                Grid.Row="1"
+                Margin="16,0"
+                Severity="Error"
+                IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                CloseButtonCommand="{x:Bind ViewModel.DismissErrorCommand}" />
+
+            <!-- Empty state -->
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12"
+                Visibility="{x:Bind app:Ui.Visible(ViewModel.ShowEmptyReadingPane), Mode=OneWay}">
+                <FontIcon
+                    FontFamily="{StaticResource LucideFont}"
+                    FontSize="48"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Glyph="{StaticResource IconMail}" />
+                <TextBlock
+                    Style="{StaticResource MediumTextStyle}"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Selecciona un mensaje para leerlo" />
+            </StackPanel>
+
+            <Grid Grid.Row="2" Visibility="{x:Bind app:Ui.Visible(ViewModel.ShowReadingPane), Mode=OneWay}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <CommandBar Grid.Row="0" HorizontalAlignment="Left" DefaultLabelPosition="Right" Background="Transparent" Margin="8,0">
+                    <AppBarButton Label="Responder" Command="{x:Bind ViewModel.ReplyCommand}">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconReply}" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Label="Responder a todos" Command="{x:Bind ViewModel.ReplyAllCommand}">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconReplyAll}" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Label="Reenviar" Command="{x:Bind ViewModel.ForwardCommand}">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconForward}" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
+                    <AppBarButton Label="Eliminar" Command="{x:Bind ViewModel.DeleteCommand}">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconDelete}" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Label="Marcar" Command="{x:Bind ViewModel.ToggleFlagCommand}">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconFlag}" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <CommandBar.SecondaryCommands>
+                        <AppBarButton Label="Marcar como no leído" Command="{x:Bind ViewModel.ToggleReadCommand}">
+                            <AppBarButton.Icon>
+                                <FontIcon FontFamily="{StaticResource LucideFont}" Glyph="{StaticResource IconMail}" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+                    </CommandBar.SecondaryCommands>
+                </CommandBar>
+
+                <!-- Header (original MessageHeaderView): subject, then [avatar 40][16][sender / date / to]. -->
+                <StackPanel Grid.Row="1" Padding="24,12,24,16" Spacing="16">
+                    <TextBlock Style="{StaticResource LargePlusTextStyle}" Text="{x:Bind ViewModel.SelectedMessage.Subject, Mode=OneWay, FallbackValue=''}" />
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <PersonPicture
+                            Width="40"
+                            Height="40"
+                            VerticalAlignment="Top"
+                            Initials="{x:Bind ViewModel.SelectedMessage.Initials, Mode=OneWay, FallbackValue=''}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Style="{StaticResource MediumSemiboldTextStyle}" Text="{x:Bind ViewModel.SelectedMessage.FromName, Mode=OneWay, FallbackValue=''}" />
+                                <TextBlock
+                                    Style="{StaticResource MediumTextStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind ViewModel.SelectedMessage.FromEmail, Mode=OneWay, FallbackValue=''}" />
+                            </StackPanel>
+                            <TextBlock
+                                Style="{StaticResource SmallTextStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.SelectedMessage.ReceivedFullText, Mode=OneWay, FallbackValue=''}" />
+                            <TextBlock
+                                Style="{StaticResource SmallTextStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Visibility="{x:Bind app:Ui.VisibleIfNotNull(ViewModel.SelectedRecipients), Mode=OneWay}">
+                                <Run Text="Para:" />
+                                <Run Text="{x:Bind ViewModel.SelectedRecipients, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Original ExternalContentSettings: remote images stay blocked until the user allows them. -->
+                <InfoBar
+                    x:Name="RemoteContentInfo"
+                    Grid.Row="2"
+                    Margin="24,0,24,8"
+                    Severity="Informational"
+                    IsClosable="False"
+                    Message="Para proteger tu privacidad, se bloquearon las imágenes remotas de este mensaje.">
+                    <InfoBar.ActionButton>
+                        <Button Content="Mostrar imágenes" Click="OnShowRemoteContentClick" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <WebView2 x:Name="BodyView" Grid.Row="3" />
+
+                <ProgressRing
+                    Grid.Row="3"
+                    VerticalAlignment="Top"
+                    Margin="0,24,0,0"
+                    IsActive="{x:Bind ViewModel.IsLoadingBody, Mode=OneWay}" />
+            </Grid>
+
+            <!-- Compose, in place of the reading pane as in the original -->
+            <ContentControl
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Visibility="{x:Bind app:Ui.Visible(ViewModel.IsComposing), Mode=OneWay}"
+                Content="{x:Bind ViewModel.Compose, Mode=OneWay}">
+                <ContentControl.ContentTemplate>
+                    <DataTemplate x:DataType="vm:ComposeViewModel">
+                        <Grid Padding="24,8,24,24" RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Style="{StaticResource AccentButtonStyle}" Command="{x:Bind SendCommand}" AutomationProperties.Name="Enviar">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontFamily="{StaticResource LucideFont}" FontSize="14" Glyph="{StaticResource IconSend}" />
+                                        <TextBlock Text="Enviar" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{x:Bind DiscardCommand}" AutomationProperties.Name="Descartar">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontFamily="{StaticResource LucideFont}" FontSize="14" Glyph="{StaticResource IconDelete}" />
+                                        <TextBlock Text="Descartar" />
+                                    </StackPanel>
+                                </Button>
+                                <ProgressRing Width="20" Height="20" IsActive="{x:Bind SendCommand.IsRunning, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <InfoBar
+                                Grid.Row="1"
+                                Severity="Error"
+                                IsClosable="False"
+                                IsOpen="{x:Bind HasError, Mode=OneWay}"
+                                Message="{x:Bind ErrorMessage, Mode=OneWay}" />
+
+                            <ComboBox
+                                Grid.Row="2"
+                                Header="De"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{x:Bind Accounts}"
+                                SelectedItem="{x:Bind From, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:Account">
+                                        <TextBlock Text="{x:Bind Email}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBox Grid.Row="3" Header="Para" PlaceholderText="nombre@ejemplo.com; otra@ejemplo.com" Text="{x:Bind To, Mode=TwoWay}" />
+                            <TextBox Grid.Row="4" Header="CC" Text="{x:Bind Cc, Mode=TwoWay}" />
+                            <TextBox Grid.Row="5" PlaceholderText="Asunto" FontSize="18" Text="{x:Bind Subject, Mode=TwoWay}" />
+                            <TextBox
+                                Grid.Row="6"
+                                AcceptsReturn="True"
+                                TextWrapping="Wrap"
+                                FontSize="16"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                PlaceholderText="Escribe tu mensaje"
+                                Text="{x:Bind Body, Mode=TwoWay}" />
+                        </Grid>
+                    </DataTemplate>
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </Grid>
+
+        <!-- First run: no accounts yet -->
+        <Grid
+            Grid.Row="1"
+            Grid.Column="1"
+            Grid.ColumnSpan="2"
+            Background="{ThemeResource PaneBackgroundBrush}"
+            Visibility="{x:Bind app:Ui.Visible(ViewModel.ShowWelcome), Mode=OneWay}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16" MaxWidth="440">
+                <FontIcon FontFamily="{StaticResource LucideFont}" FontSize="56" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="{StaticResource IconMail}" />
+                <TextBlock HorizontalAlignment="Center" Style="{StaticResource LargePlusTextStyle}" Text="Te damos la bienvenida a MyMail" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap"
+                    TextTrimming="None"
+                    Style="{StaticResource MediumTextStyle}"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Agrega tu cuenta de Outlook, Microsoft 365, Gmail, Yahoo, iCloud o cualquier servidor IMAP." />
+                <Button HorizontalAlignment="Center" Style="{StaticResource AccentButtonStyle}" Click="OnAddAccountClick" AutomationProperties.Name="Agregar cuenta">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{StaticResource LucideFont}" FontSize="16" Glyph="{StaticResource IconUserPlus}" />
+                        <TextBlock Text="Agregar cuenta" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+AppPackages/
+BundleArtifacts/
+
+# Original Microsoft package used only as reference (copyrighted, never commit)
+*.AppxBundle
+*.appx
+*.msixbundle
+
+# Reverse-engineering reference notes (kept local)
+docs/

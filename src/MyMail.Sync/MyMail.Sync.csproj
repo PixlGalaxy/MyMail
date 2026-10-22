@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Windows-only: DPAPI for secrets, WAM broker for Microsoft sign-in. -->
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyMail.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.18.1" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.66.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.66.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.66.1" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyMail.Core\MyMail.Core.csproj" />
+    <ProjectReference Include="..\MyMail.Storage\MyMail.Storage.csproj" />
+  </ItemGroup>
+
+</Project>
